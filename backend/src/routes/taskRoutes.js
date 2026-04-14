@@ -3,7 +3,7 @@ import {
   createTask,
   getTasks,
   updateTaskStatus,
-} from "../controllers/taskController.js";
+} from "../controllers/taskcontroller.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
