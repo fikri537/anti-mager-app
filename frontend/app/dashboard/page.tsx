@@ -21,7 +21,6 @@ export default function Dashboard() {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 🔐 AUTH CHECK + LOAD TOKEN
   useEffect(() => {
     const t = localStorage.getItem("token");
 
@@ -33,7 +32,6 @@ export default function Dashboard() {
     setToken(t);
   }, [router]);
 
-  // 📦 FETCH TASKS
   useEffect(() => {
     if (!token) return;
 
@@ -53,7 +51,6 @@ export default function Dashboard() {
     fetchTasks();
   }, [token]);
 
-  // ➕ CREATE TASK
   const handleCreate = async () => {
     if (!token) return;
     if (!title || !deadline) return;
@@ -76,6 +73,28 @@ export default function Dashboard() {
       console.error("Create task error:", err);
     }
   };
+
+  const markAsDone = async (id: number) => {
+  if (!token) return;
+
+  await fetch(`http://localhost:5000/api/tasks/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: token,
+    },
+    body: JSON.stringify({ status: "done" }),
+  });
+
+  const data = await getTasks(token);
+  setTasks(data);
+};
+
+const getScore = (task: Task) => {
+  if (task.status === "done") return 10;
+  if (task.status === "late") return -5;
+  return 0;
+};
 
   return (
     <div className="p-6">
@@ -111,16 +130,35 @@ export default function Dashboard() {
       {/* TASK LIST */}
       <ul className="space-y-2">
         {tasks.map((task) => (
-          <li key={task.id} className="border p-3">
-            <h2 className="font-bold">{task.title}</h2>
-            <p>Status: {task.status}</p>
-            <p>Penalty: {task.penalty}</p>
-            <p className="text-sm text-gray-500">
-              Deadline: {new Date(task.deadline).toLocaleString()}
-            </p>
-          </li>
-        ))}
-      </ul>
+        <li key={task.id} className="border p-3 flex justify-between">
+            <div>
+                <h2 className="font-bold">{task.title}</h2>
+                <p
+                    className={
+                    task.status === "done"
+                    ? "text-green-600"
+                    : task.status === "late"
+                    ? "text-red-600"
+                    : "text-yellow-600"
+                  }
+                >
+                  Status: {task.status}
+                </p>
+                <p>Penalty: {task.penalty}</p>
+                <p>Score: {getScore(task)}</p>
+            </div>
+
+            {task.status !== "done" && (
+                <button
+                    onClick={() => markAsDone(task.id)}
+                    className="bg-green-600 text-white px-3 py-1"
+                >
+                    Done
+                    </button>
+                )}
+                </li>
+            ))}
+        </ul>
     </div>
   );
 }
