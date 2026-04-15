@@ -11,53 +11,36 @@ type User = {
 
 export default function Leaderboard() {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
-      try {
-        setLoading(true);
-
-        const data = await getLeaderboard();
-
-        if (Array.isArray(data)) {
-          setUsers(data);
-        } else if (data.users) {
-          setUsers(data.users);
-        } else {
-          console.error("Invalid leaderboard:", data);
-          setUsers([]);
-        }
-      } catch (err) {
-        console.error(err);
-        setUsers([]);
-      } finally {
-        setLoading(false);
-      }
+    const fetchData = async () => {
+      const res = await getLeaderboard();
+      setUsers(Array.isArray(res.data) ? res.data : []);
     };
 
-    fetchLeaderboard();
+    fetchData();
   }, []);
 
   return (
-    <div className="p-6 max-w-xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">🏆 Leaderboard</h1>
+    <div className="min-h-screen bg-gray-100 p-6">
+      <div className="max-w-xl mx-auto">
 
-      {loading && <p>Loading...</p>}
+        <h1 className="text-3xl font-bold mb-6">🏆 Leaderboard</h1>
 
-      <ul className="space-y-3">
-        {users.map((user, index) => (
-          <li
-            key={user.id}
-            className="border p-4 flex justify-between rounded"
-          >
-            <span>
-              #{index + 1} — {user.name}
-            </span>
-            <span className="font-bold">{user.score} pts</span>
-          </li>
-        ))}
-      </ul>
+        <div className="space-y-3">
+          {users.map((user, i) => (
+            <div
+              key={user.id}
+              className="bg-white p-4 rounded-xl shadow flex justify-between"
+            >
+              <span>
+                #{i + 1} — {user.name}
+              </span>
+              <span className="font-bold">{user.score} pts</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

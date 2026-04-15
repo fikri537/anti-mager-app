@@ -21,7 +21,6 @@ export default function Dashboard() {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 🔐 AUTH CHECK
   useEffect(() => {
     const t = localStorage.getItem("token");
 
@@ -33,14 +32,12 @@ export default function Dashboard() {
     setToken(t);
   }, [router]);
 
-  // 📦 FETCH TASKS (SAFE)
   const fetchTasks = async (tkn: string) => {
     try {
       setLoading(true);
 
       const data = await getTasks(tkn);
 
-      // 🔥 FIX: pastikan array
       if (Array.isArray(data)) {
         setTasks(data);
       } else if (data.tasks) {
@@ -62,7 +59,6 @@ export default function Dashboard() {
     fetchTasks(token);
   }, [token]);
 
-  // ➕ CREATE TASK
   const handleCreate = async () => {
     if (!token || !title || !deadline) return;
 
@@ -77,7 +73,6 @@ export default function Dashboard() {
     }
   };
 
-  // ✅ MARK AS DONE
   const markAsDone = async (id: number) => {
     if (!token) return;
 
@@ -97,14 +92,12 @@ export default function Dashboard() {
     }
   };
 
-  // 🧠 SCORE SYSTEM
   const getScore = (task: Task) => {
     if (task.status === "done") return 10;
     if (task.status === "late") return -5;
     return 0;
   };
 
-  // 📊 STATISTICS
   const total = tasks.length;
   const done = tasks.filter((t) => t.status === "done").length;
   const late = tasks.filter((t) => t.status === "late").length;
