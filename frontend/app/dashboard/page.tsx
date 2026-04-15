@@ -1,43 +1,80 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getTasks, createTask } from "@/services/api";
 
 type Task = {
   id: number;
   title: string;
-  status: string;
+  status: "pending" | "done" | "late";
   penalty: number;
   deadline: string;
 };
 
 export default function Dashboard() {
+  const router = useRouter();
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : "";
-
+  // 🔐 AUTH CHECK + LOAD TOKEN
   useEffect(() => {
+    const t = localStorage.getItem("token");
+
+    if (!t) {
+      router.push("/login");
+      return;
+    }
+
+    setToken(t);
+  }, [router]);
+
+  // 📦 FETCH TASKS
+  useEffect(() => {
+    if (!token) return;
+
     const fetchTasks = async () => {
-      const data = await getTasks(token || "");
-      setTasks(data);
+      try {
+        setLoading(true);
+
+        const data = await getTasks(token);
+        setTasks(data);
+      } catch (err) {
+        console.error("Failed to fetch tasks:", err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchTasks();
   }, [token]);
 
+  // ➕ CREATE TASK
   const handleCreate = async () => {
-    await createTask({ title, deadline }, token || "");
+    if (!token) return;
+    if (!title || !deadline) return;
 
-    // refresh data setelah create
-    const data = await getTasks(token || "");
-    setTasks(data);
+    try {
+      await createTask(
+        {
+          title,
+          deadline,
+        },
+        token
+      );
 
-    // reset input (optional tapi bagus UX)
-    setTitle("");
-    setDeadline("");
+      const data = await getTasks(token);
+      setTasks(data);
+
+      setTitle("");
+      setDeadline("");
+    } catch (err) {
+      console.error("Create task error:", err);
+    }
   };
 
   return (
@@ -45,7 +82,7 @@ export default function Dashboard() {
       <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
 
       {/* CREATE TASK */}
-      <div className="space-x-2 mb-4">
+      <div className="space-x-2 mb-6">
         <input
           placeholder="Task title"
           className="border p-2"
@@ -68,6 +105,9 @@ export default function Dashboard() {
         </button>
       </div>
 
+      {/* LOADING STATE */}
+      {loading && <p>Loading tasks...</p>}
+
       {/* TASK LIST */}
       <ul className="space-y-2">
         {tasks.map((task) => (
@@ -75,6 +115,9 @@ export default function Dashboard() {
             <h2 className="font-bold">{task.title}</h2>
             <p>Status: {task.status}</p>
             <p>Penalty: {task.penalty}</p>
+            <p className="text-sm text-gray-500">
+              Deadline: {new Date(task.deadline).toLocaleString()}
+            </p>
           </li>
         ))}
       </ul>

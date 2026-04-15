@@ -27,22 +27,22 @@ export default function LoginPage() {
         localStorage.setItem("token", res.token);
         router.push("/dashboard");
       } else {
-        alert("Login gagal");
+        alert(res.message || "Login gagal");
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi error saat login");
+      alert("Server error");
     }
   };
 
   return (
     <div className="flex h-screen items-center justify-center">
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 w-80">
         <h1 className="text-2xl font-bold">Login</h1>
 
         <input
-          placeholder="Email"
           className="border p-2 w-full"
+          placeholder="Email"
           value={form.email}
           onChange={(e) =>
             setForm({ ...form, email: e.target.value })
@@ -51,8 +51,8 @@ export default function LoginPage() {
 
         <input
           type="password"
-          placeholder="Password"
           className="border p-2 w-full"
+          placeholder="Password"
           value={form.password}
           onChange={(e) =>
             setForm({ ...form, password: e.target.value })
