@@ -23,8 +23,8 @@ export default function LoginPage() {
     try {
       const res = await loginUser(form);
 
-      if (res.token) {
-        localStorage.setItem("token", res.token);
+      if (res.success && res.data?.token) {
+        localStorage.setItem("token", res.data.token);
         router.push("/dashboard");
       } else {
         alert(res.message || "Login gagal");
@@ -36,13 +36,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex h-screen items-center justify-center">
-      <form onSubmit={handleSubmit} className="space-y-4 w-80">
-        <h1 className="text-2xl font-bold">Login</h1>
+    <div className="flex h-screen items-center justify-center bg-gray-100">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-6 rounded-xl shadow w-80 space-y-4"
+      >
+        <h1 className="text-2xl font-bold text-center">Login</h1>
 
         <input
-          className="border p-2 w-full"
           placeholder="Email"
+          className="border p-2 w-full rounded"
           value={form.email}
           onChange={(e) =>
             setForm({ ...form, email: e.target.value })
@@ -51,17 +54,27 @@ export default function LoginPage() {
 
         <input
           type="password"
-          className="border p-2 w-full"
           placeholder="Password"
+          className="border p-2 w-full rounded"
           value={form.password}
           onChange={(e) =>
             setForm({ ...form, password: e.target.value })
           }
         />
 
-        <button className="bg-black text-white px-4 py-2 w-full">
+        <button className="bg-black text-white w-full py-2 rounded">
           Login
         </button>
+
+        <p className="text-sm text-center">
+          Belum punya akun?{" "}
+          <span
+            onClick={() => router.push("/register")}
+            className="text-blue-600 cursor-pointer"
+          >
+            Register
+          </span>
+        </p>
       </form>
     </div>
   );
