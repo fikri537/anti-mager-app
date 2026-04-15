@@ -3,27 +3,42 @@
 import { useEffect, useState } from "react";
 import { getTasks, createTask } from "@/services/api";
 
+type Task = {
+  id: number;
+  title: string;
+  status: string;
+  penalty: number;
+  deadline: string;
+};
+
 export default function Dashboard() {
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState("");
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : "";
 
-  const fetchTasks = async () => {
-    const data = await getTasks(token || "");
-    setTasks(data);
-  };
+  useEffect(() => {
+    const fetchTasks = async () => {
+      const data = await getTasks(token || "");
+      setTasks(data);
+    };
+
+    fetchTasks();
+  }, [token]);
 
   const handleCreate = async () => {
     await createTask({ title, deadline }, token || "");
-    fetchTasks();
-  };
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
+    // refresh data setelah create
+    const data = await getTasks(token || "");
+    setTasks(data);
+
+    // reset input (optional tapi bagus UX)
+    setTitle("");
+    setDeadline("");
+  };
 
   return (
     <div className="p-6">
@@ -34,12 +49,14 @@ export default function Dashboard() {
         <input
           placeholder="Task title"
           className="border p-2"
+          value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
 
         <input
           type="datetime-local"
           className="border p-2"
+          value={deadline}
           onChange={(e) => setDeadline(e.target.value)}
         />
 

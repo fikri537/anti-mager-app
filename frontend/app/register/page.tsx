@@ -1,22 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { registerUser } from "@/services/api";
 import { useRouter } from "next/navigation";
+
+type RegisterForm = {
+  name: string;
+  email: string;
+  password: string;
+};
 
 export default function RegisterPage() {
   const router = useRouter();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<RegisterForm>({
     name: "",
     email: "",
     password: "",
   });
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    await registerUser(form);
-    router.push("/login");
+
+    try {
+      await registerUser(form);
+      router.push("/login");
+    } catch (err) {
+      console.error(err);
+      alert("Register gagal");
+    }
   };
 
   return (
@@ -27,20 +39,29 @@ export default function RegisterPage() {
         <input
           placeholder="Name"
           className="border p-2 w-full"
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          value={form.name}
+          onChange={(e) =>
+            setForm({ ...form, name: e.target.value })
+          }
         />
 
         <input
           placeholder="Email"
           className="border p-2 w-full"
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          value={form.email}
+          onChange={(e) =>
+            setForm({ ...form, email: e.target.value })
+          }
         />
 
         <input
           type="password"
           placeholder="Password"
           className="border p-2 w-full"
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          value={form.password}
+          onChange={(e) =>
+            setForm({ ...form, password: e.target.value })
+          }
         />
 
         <button className="bg-black text-white px-4 py-2 w-full">

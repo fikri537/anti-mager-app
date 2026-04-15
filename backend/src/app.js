@@ -8,10 +8,13 @@ import taskRoutes from "./routes/taskRoutes.js";
 dotenv.config();
 
 const app = express();
-app.use("/auth", authRoutes);
 
 app.use(cors());
 app.use(express.json());
+
+// ✅ FIX INI (WAJIB)
+app.use("/api/auth", authRoutes);
+app.use("/api/tasks", taskRoutes);
 
 app.get("/", (req, res) => {
   res.send("API Anti-Mager Running 🚀");

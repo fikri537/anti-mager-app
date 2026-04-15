@@ -1,27 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { loginUser } from "@/services/api";
 import { useRouter } from "next/navigation";
+
+type LoginForm = {
+  email: string;
+  password: string;
+};
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<LoginForm>({
     email: "",
     password: "",
   });
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const res = await loginUser(form);
+    try {
+      const res = await loginUser(form);
 
-    if (res.token) {
-      localStorage.setItem("token", res.token);
-      router.push("/dashboard");
-    } else {
-      alert("Login gagal");
+      if (res.token) {
+        localStorage.setItem("token", res.token);
+        router.push("/dashboard");
+      } else {
+        alert("Login gagal");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi error saat login");
     }
   };
 
@@ -33,14 +43,20 @@ export default function LoginPage() {
         <input
           placeholder="Email"
           className="border p-2 w-full"
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          value={form.email}
+          onChange={(e) =>
+            setForm({ ...form, email: e.target.value })
+          }
         />
 
         <input
           type="password"
           placeholder="Password"
           className="border p-2 w-full"
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          value={form.password}
+          onChange={(e) =>
+            setForm({ ...form, password: e.target.value })
+          }
         />
 
         <button className="bg-black text-white px-4 py-2 w-full">
