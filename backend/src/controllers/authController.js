@@ -1,10 +1,25 @@
 import { db } from "../config/db.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { successResponse, errorResponse } from "../utils/response.js";
 
 export const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return errorResponse(res, "All fields are required", 400);
+    }
+
+    const [existing] = await db.query(
+      "SELECT * FROM users WHERE email = ?",
+      [email]
+    );
+
+    if (existing.length > 0) {
+      return errorResponse(res, "Email already registered", 400);
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await db.query(
@@ -12,9 +27,9 @@ export const register = async (req, res) => {
       [name, email, hashedPassword]
     );
 
-     res.json({ message: "User registered successfully" });
+    return successResponse(res, null, "Register success");
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return errorResponse(res, err.message);
   }
 };
 
@@ -22,34 +37,42 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const [rows] = await db.query(
+    if (!email || !password) {
+      return errorResponse(res, "Email & password required", 400);
+    }
+
+    const [users] = await db.query(
       "SELECT * FROM users WHERE email = ?",
       [email]
     );
 
-    if (rows.length === 0) {
-      return res.status(400).json({ message: "User not found" });
+    if (users.length === 0) {
+      return errorResponse(res, "User not found", 400);
     }
 
-    const user = rows[0];
+    const user = users[0];
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(400).json({ message: "Wrong password" });
+      return errorResponse(res, "Wrong password", 400);
     }
 
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "7d" }
     );
 
-    res.json({
-      message: "Login success",
+    return successResponse(res, {
       token,
-    });
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+    }, "Login success");
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return errorResponse(res, err.message);
   }
 };
