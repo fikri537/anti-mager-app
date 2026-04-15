@@ -80,3 +80,8 @@ export const updateTask = async (
     body: JSON.stringify({ status }),
   });
 };
+
+export const getLeaderboard = async () => {
+  const res = await fetch(`${BASE_URL}/tasks/leaderboard`);
+  return res.json();
+};

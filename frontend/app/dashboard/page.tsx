@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // 🔐 AUTH CHECK
   useEffect(() => {
     const t = localStorage.getItem("token");
 
@@ -32,13 +33,25 @@ export default function Dashboard() {
     setToken(t);
   }, [router]);
 
+  // 📦 FETCH TASKS (SAFE)
   const fetchTasks = async (tkn: string) => {
     try {
       setLoading(true);
+
       const data = await getTasks(tkn);
-      setTasks(data);
+
+      // 🔥 FIX: pastikan array
+      if (Array.isArray(data)) {
+        setTasks(data);
+      } else if (data.tasks) {
+        setTasks(data.tasks);
+      } else {
+        console.error("Invalid response:", data);
+        setTasks([]);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Fetch error:", err);
+      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -49,40 +62,63 @@ export default function Dashboard() {
     fetchTasks(token);
   }, [token]);
 
+  // ➕ CREATE TASK
   const handleCreate = async () => {
     if (!token || !title || !deadline) return;
 
-    await createTask({ title, deadline }, token);
-    await fetchTasks(token);
+    try {
+      await createTask({ title, deadline }, token);
+      await fetchTasks(token);
 
-    setTitle("");
-    setDeadline("");
+      setTitle("");
+      setDeadline("");
+    } catch (err) {
+      console.error("Create error:", err);
+    }
   };
 
+  // ✅ MARK AS DONE
   const markAsDone = async (id: number) => {
     if (!token) return;
 
-    await fetch(`http://localhost:5000/api/tasks/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: token,
-      },
-      body: JSON.stringify({ status: "done" }),
-    });
+    try {
+      await fetch(`http://localhost:5000/api/tasks/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token,
+        },
+        body: JSON.stringify({ status: "done" }),
+      });
 
-    await fetchTasks(token);
+      await fetchTasks(token);
+    } catch (err) {
+      console.error("Update error:", err);
+    }
   };
 
+  // 🧠 SCORE SYSTEM
   const getScore = (task: Task) => {
     if (task.status === "done") return 10;
     if (task.status === "late") return -5;
     return 0;
   };
 
+  // 📊 STATISTICS
+  const total = tasks.length;
+  const done = tasks.filter((t) => t.status === "done").length;
+  const late = tasks.filter((t) => t.status === "late").length;
+  const score = tasks.reduce((acc, t) => acc + getScore(t), 0);
+
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">🔥 Anti-Mager Dashboard</h1>
+      {/* NAV */}
+      <div className="flex justify-between mb-4">
+        <h1 className="text-3xl font-bold">🔥 Dashboard</h1>
+        <a href="/leaderboard" className="text-blue-600">
+          Leaderboard →
+        </a>
+      </div>
 
       {/* CREATE TASK */}
       <div className="space-y-2 mb-6">
@@ -108,6 +144,16 @@ export default function Dashboard() {
         </button>
       </div>
 
+      {/* STATS */}
+      <div className="mb-6 grid grid-cols-2 gap-4">
+        <div className="border p-3 rounded">Total: {total}</div>
+        <div className="border p-3 rounded">Done: {done}</div>
+        <div className="border p-3 rounded">Late: {late}</div>
+        <div className="border p-3 rounded font-bold">
+          Score: {score}
+        </div>
+      </div>
+
       {/* LOADING */}
       {loading && <p>Loading...</p>}
 
@@ -121,7 +167,6 @@ export default function Dashboard() {
             <div>
               <h2 className="font-bold text-lg">{task.title}</h2>
 
-              {/* STATUS */}
               <p
                 className={
                   task.status === "done"
@@ -135,6 +180,7 @@ export default function Dashboard() {
               </p>
 
               <p>Penalty: {task.penalty}</p>
+
               <p className="text-sm text-gray-500">
                 {new Date(task.deadline).toLocaleString()}
               </p>
@@ -144,7 +190,6 @@ export default function Dashboard() {
               </p>
             </div>
 
-            {/* BUTTON DONE */}
             {task.status !== "done" && (
               <button
                 onClick={() => markAsDone(task.id)}
