@@ -3,6 +3,7 @@ import {
   createNewTask,
   updateTaskStatus,
   getLeaderboardData,
+  deleteTaskById,
 } from "../services/taskService.js";
 
 import { successResponse, errorResponse } from "../utils/response.js";
@@ -41,9 +42,22 @@ export const updateTask = async (req, res) => {
       return errorResponse(res, "Status required", 400);
     }
 
-    await updateTaskStatus(id, status);
+    // 🔥 FIX: pakai userId biar aman
+    await updateTaskStatus(id, req.user.id, status);
 
     return successResponse(res, null, "Task updated");
+  } catch (err) {
+    return errorResponse(res, err.message);
+  }
+};
+
+export const deleteTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await deleteTaskById(id, req.user.id);
+
+    return successResponse(res, null, "Task deleted");
   } catch (err) {
     return errorResponse(res, err.message);
   }

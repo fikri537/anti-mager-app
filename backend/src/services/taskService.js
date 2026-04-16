@@ -10,7 +10,7 @@ export const updateLateTasks = async () => {
 };
 
 export const getTasksByUser = async (userId) => {
-  await updateLateTasks(); 
+  await updateLateTasks();
 
   const [tasks] = await db.query(
     "SELECT * FROM tasks WHERE user_id = ? ORDER BY deadline ASC",
@@ -27,11 +27,26 @@ export const createNewTask = async (userId, title, deadline) => {
   );
 };
 
-export const updateTaskStatus = async (id, status) => {
-  await db.query(
-    "UPDATE tasks SET status = ? WHERE id = ?",
-    [status, id]
+export const updateTaskStatus = async (taskId, userId, status) => {
+  const [result] = await db.query(
+    "UPDATE tasks SET status = ? WHERE id = ? AND user_id = ?",
+    [status, taskId, userId]
   );
+
+  if (result.affectedRows === 0) {
+    throw new Error("Task not found or unauthorized");
+  }
+};
+
+export const deleteTaskById = async (taskId, userId) => {
+  const [result] = await db.query(
+    "DELETE FROM tasks WHERE id = ? AND user_id = ?",
+    [taskId, userId]
+  );
+
+  if (result.affectedRows === 0) {
+    throw new Error("Task not found or unauthorized");
+  }
 };
 
 export const getLeaderboardData = async () => {
