@@ -28,14 +28,16 @@ export default function Dashboard() {
   const [deadline, setDeadline] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState("all");
 
   useEffect(() => {
     const t = localStorage.getItem("token");
+
     if (!t) {
-      router.push("/login");
-      return;
+      router.replace("/login");
+    } else {
+      setToken(t);
     }
-    setToken(t);
   }, [router]);
 
   const fetchTasks = async (tkn: string) => {
@@ -46,11 +48,10 @@ export default function Dashboard() {
       if (res.success && Array.isArray(res.data)) {
         setTasks(res.data);
       } else {
-        console.error("Invalid response:", res);
         setTasks([]);
       }
     } catch (err) {
-      console.error("Fetch error:", err);
+      console.error(err);
       setTasks([]);
     } finally {
       setLoading(false);
@@ -65,14 +66,10 @@ export default function Dashboard() {
   const handleCreate = async () => {
     if (!token || !title || !deadline) return;
 
-    try {
-      await createTask({ title, deadline }, token);
-      await fetchTasks(token);
-      setTitle("");
-      setDeadline("");
-    } catch (err) {
-      console.error("Create error:", err);
-    }
+    await createTask({ title, deadline }, token);
+    fetchTasks(token);
+    setTitle("");
+    setDeadline("");
   };
 
   const markAsDone = async (id: number) => {
@@ -90,16 +87,39 @@ export default function Dashboard() {
     fetchTasks(token);
   };
 
+  const deleteTask = async (id: number) => {
+    if (!token) return;
+
+    await fetch(`http://localhost:5000/api/tasks/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: token,
+      },
+    });
+
+    fetchTasks(token);
+  };
+
+  const isLate = (deadline: string) => {
+    return new Date(deadline) < new Date();
+  };
+
+  const getStatus = (task: Task) => {
+    if (task.status === "done") return "done";
+    if (isLate(task.deadline)) return "late";
+    return "pending";
+  };
+
   const getScore = (task: Task) => {
-    if (task.status === "done") return 10;
-    if (task.status === "late") return -5;
+    if (getStatus(task) === "done") return 10;
+    if (getStatus(task) === "late") return -5;
     return 0;
   };
 
   const total = tasks.length;
-  const done = tasks.filter((t) => t.status === "done").length;
-  const late = tasks.filter((t) => t.status === "late").length;
-  const pending = tasks.filter((t) => t.status === "pending").length;
+  const done = tasks.filter((t) => getStatus(t) === "done").length;
+  const late = tasks.filter((t) => getStatus(t) === "late").length;
+  const pending = tasks.filter((t) => getStatus(t) === "pending").length;
   const score = tasks.reduce((acc, t) => acc + getScore(t), 0);
 
   const chartData = [
@@ -108,30 +128,45 @@ export default function Dashboard() {
     { name: "Late", value: late },
   ];
 
+  const filteredTasks = tasks.filter((task) => {
+    if (filter === "all") return true;
+    return getStatus(task) === filter;
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-blue-500 p-6 text-white">
       
       {/* HEADER */}
       <div className="flex justify-between mb-6">
         <h1 className="text-3xl font-bold">🔥 Anti-Mager</h1>
-        <a href="/leaderboard" className="underline">
-          Leaderboard →
-        </a>
+
+        <div className="space-x-4">
+          <a href="/leaderboard" className="underline">
+            Leaderboard
+          </a>
+
+          <button
+            onClick={() => {
+              localStorage.removeItem("token");
+              router.push("/login");
+            }}
+            className="bg-red-500 px-3 py-1 rounded"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
-      {/* SCORE CARD */}
+      {/* SCORE */}
       <div className="backdrop-blur-lg bg-white/20 border border-white/30 p-6 rounded-2xl mb-6 shadow-lg">
-        <p className="text-lg">Your Score</p>
+        <p>Your Score</p>
         <h2 className="text-4xl font-bold">{score} pts</h2>
       </div>
 
       {/* CHART */}
       <div className="relative p-6 rounded-2xl mb-6 shadow-lg overflow-hidden">
-
-        {/* PAINT BACKGROUND */}
         <div className="absolute inset-0 bg-gradient-to-br from-pink-300 via-purple-300 to-blue-300 opacity-30 blur-2xl"></div>
 
-        {/* WHITE CARD */}
         <div className="relative bg-white text-black p-5 rounded-xl">
           <h2 className="mb-4 font-semibold">Task Overview</h2>
 
@@ -140,10 +175,10 @@ export default function Dashboard() {
               <XAxis dataKey="name" stroke="#333" />
               <Tooltip />
 
-              <Bar dataKey="value" radius={[10, 10, 0, 0]}>
+              <Bar dataKey="value">
                 {chartData.map((entry, index) => (
                   <Cell
-                    key={`cell-${index}`}
+                    key={index}
                     fill={
                       entry.name === "Done"
                         ? "#22c55e"
@@ -159,93 +194,91 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* CREATE TASK */}
-      <div className="backdrop-blur-lg bg-white/20 border border-white/30 p-6 rounded-2xl mb-6 shadow-lg space-y-3">
+      {/* CREATE */}
+      <div className="backdrop-blur-lg bg-white/20 p-6 rounded-2xl mb-6 space-y-3">
         <input
           placeholder="Task title"
-          className="p-2 w-full rounded bg-white/30 text-white placeholder-white"
+          className="p-2 w-full rounded bg-white/30"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
 
         <input
           type="datetime-local"
-          className="p-2 w-full rounded bg-white/30 text-white"
+          className="p-2 w-full rounded bg-white/30"
           value={deadline}
           onChange={(e) => setDeadline(e.target.value)}
         />
 
         <button
           onClick={handleCreate}
-          className="bg-black/80 hover:bg-black px-4 py-2 w-full rounded"
+          className="bg-black px-4 py-2 w-full rounded"
         >
           Add Task
         </button>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="glass">Total: {total}</div>
-        <div className="glass">Done: {done}</div>
-        <div className="glass">Late: {late}</div>
-        <div className="glass">Pending: {pending}</div>
+      {/* FILTER */}
+      <div className="flex gap-2 mb-4">
+        {["all", "done", "pending", "late"].map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className="bg-white/20 px-3 py-1 rounded"
+          >
+            {f}
+          </button>
+        ))}
       </div>
 
-      {/* LOADING */}
+      {/* TASK LIST */}
       {loading && <p>Loading...</p>}
 
-      {/* TASK LIST */}
       <ul className="space-y-3">
-        {tasks.map((task) => (
+        {filteredTasks.map((task) => (
           <li
             key={task.id}
-            className="backdrop-blur-lg bg-white/20 border border-white/30 p-4 rounded-xl flex justify-between"
+            className="backdrop-blur-lg bg-white/20 p-4 rounded-xl flex justify-between"
           >
             <div>
-              <h2 className="font-bold text-lg">{task.title}</h2>
+              <h2 className="font-bold">{task.title}</h2>
 
               <p
                 className={
-                  task.status === "done"
+                  getStatus(task) === "done"
                     ? "text-green-300"
-                    : task.status === "late"
+                    : getStatus(task) === "late"
                     ? "text-red-300"
                     : "text-yellow-300"
                 }
               >
-                {task.status}
+                {getStatus(task)}
               </p>
 
-              <p className="text-sm">
-                {new Date(task.deadline).toLocaleString()}
-              </p>
-
+              <p>{new Date(task.deadline).toLocaleString()}</p>
               <p>Score: {getScore(task)}</p>
             </div>
 
-            {task.status !== "done" && (
+            <div className="space-y-2">
+              {getStatus(task) !== "done" && (
+                <button
+                  onClick={() => markAsDone(task.id)}
+                  className="bg-green-500 px-3 py-1 rounded"
+                >
+                  Done
+                </button>
+              )}
+
               <button
-                onClick={() => markAsDone(task.id)}
-                className="bg-green-500 px-3 py-1 rounded"
+                onClick={() => deleteTask(task.id)}
+                className="bg-red-500 px-3 py-1 rounded"
               >
-                Done
+                Delete
               </button>
-            )}
+            </div>
           </li>
         ))}
       </ul>
-
-      {/* GLASS STYLE */}
-      <style jsx>{`
-        .glass {
-          backdrop-filter: blur(10px);
-          background: rgba(255, 255, 255, 0.2);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          padding: 12px;
-          border-radius: 12px;
-          text-align: center;
-        }
-      `}</style>
     </div>
   );
 }
