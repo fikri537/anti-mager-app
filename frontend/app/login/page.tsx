@@ -36,41 +36,51 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 via-pink-500 to-blue-500 p-4">
+      
+      {/* BACKGROUND BLUR EFFECT */}
+      <div className="absolute inset-0 bg-gradient-to-br from-pink-300 via-purple-300 to-blue-300 opacity-20 blur-3xl"></div>
+
+      {/* CARD */}
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-6 rounded-xl shadow w-80 space-y-4"
+        className="relative backdrop-blur-xl bg-white/20 border border-white/30 p-8 rounded-2xl shadow-xl w-full max-w-sm space-y-4 text-white"
       >
-        <h1 className="text-2xl font-bold text-center">Login</h1>
+        <h1 className="text-2xl font-bold text-center">🔥 Anti-Mager</h1>
+        <p className="text-center text-sm opacity-80">Login ke akunmu</p>
 
+        {/* EMAIL */}
         <input
           placeholder="Email"
-          className="border p-2 w-full rounded"
+          className="p-2 w-full rounded bg-white/30 text-white placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
           value={form.email}
           onChange={(e) =>
             setForm({ ...form, email: e.target.value })
           }
         />
 
+        {/* PASSWORD */}
         <input
           type="password"
           placeholder="Password"
-          className="border p-2 w-full rounded"
+          className="p-2 w-full rounded bg-white/30 text-white placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
           value={form.password}
           onChange={(e) =>
             setForm({ ...form, password: e.target.value })
           }
         />
 
-        <button className="bg-black text-white w-full py-2 rounded">
+        {/* BUTTON */}
+        <button className="bg-black/80 hover:bg-black transition w-full py-2 rounded font-semibold">
           Login
         </button>
 
+        {/* REGISTER LINK */}
         <p className="text-sm text-center">
           Belum punya akun?{" "}
           <span
             onClick={() => router.push("/register")}
-            className="text-blue-600 cursor-pointer"
+            className="underline cursor-pointer"
           >
             Register
           </span>
