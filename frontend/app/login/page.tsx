@@ -17,8 +17,14 @@ export default function LoginPage() {
     password: "",
   });
 
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    setLoading(true);
+    setError("");
 
     try {
       const res = await loginUser(form);
@@ -27,64 +33,98 @@ export default function LoginPage() {
         localStorage.setItem("token", res.data.token);
         router.push("/dashboard");
       } else {
-        alert(res.message || "Login gagal");
+        setError(res.message || "Login gagal");
       }
     } catch (err) {
       console.error(err);
-      alert("Server error");
+      setError("Server error");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 via-pink-500 to-blue-500 p-4">
-      
-      {/* BACKGROUND BLUR EFFECT */}
-      <div className="absolute inset-0 bg-gradient-to-br from-pink-300 via-purple-300 to-blue-300 opacity-20 blur-3xl"></div>
+    <div className="relative min-h-screen flex items-center justify-center bg-[#020617] overflow-hidden px-4">
+
+      {/* BACKGROUND GLOW */}
+      <div className="absolute inset-0">
+        <div className="absolute left-[-120px] top-[-120px] h-[420px] w-[420px] rounded-full bg-cyan-500/10 blur-[120px]" />
+        <div className="absolute right-[-120px] bottom-[-120px] h-[420px] w-[420px] rounded-full bg-violet-500/10 blur-[120px]" />
+      </div>
 
       {/* CARD */}
       <form
         onSubmit={handleSubmit}
-        className="relative backdrop-blur-xl bg-white/20 border border-white/30 p-8 rounded-2xl shadow-xl w-full max-w-sm space-y-4 text-white"
+        className="relative w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-2xl p-8 shadow-2xl"
       >
-        <h1 className="text-2xl font-bold text-center">🔥 Anti-Mager</h1>
-        <p className="text-center text-sm opacity-80">Login ke akunmu</p>
 
-        {/* EMAIL */}
-        <input
-          placeholder="Email"
-          className="p-2 w-full rounded bg-white/30 text-white placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
-          value={form.email}
-          onChange={(e) =>
-            setForm({ ...form, email: e.target.value })
-          }
-        />
+        {/* HEADER */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-black text-white">
+            Anti<span className="text-cyan-400">Mager</span>
+          </h1>
 
-        {/* PASSWORD */}
-        <input
-          type="password"
-          placeholder="Password"
-          className="p-2 w-full rounded bg-white/30 text-white placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
-          value={form.password}
-          onChange={(e) =>
-            setForm({ ...form, password: e.target.value })
-          }
-        />
+          <p className="text-white/40 text-sm mt-2">
+            Welcome back, let’s get things done
+          </p>
+        </div>
+
+        {/* ERROR */}
+        {error && (
+          <div className="mb-4 rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-center text-red-300 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* INPUTS */}
+        <div className="space-y-4">
+
+          <input
+            placeholder="Email"
+            className="w-full rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder:text-white/30 outline-none focus:border-cyan-400/50 transition"
+            value={form.email}
+            onChange={(e) =>
+              setForm({ ...form, email: e.target.value })
+            }
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            className="w-full rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-white placeholder:text-white/30 outline-none focus:border-cyan-400/50 transition"
+            value={form.password}
+            onChange={(e) =>
+              setForm({ ...form, password: e.target.value })
+            }
+          />
+        </div>
 
         {/* BUTTON */}
-        <button className="bg-black/80 hover:bg-black transition w-full py-2 rounded font-semibold">
-          Login
+        <button
+          disabled={loading}
+          className={`
+            mt-6 w-full rounded-2xl py-3 font-semibold transition
+            ${
+              loading
+                ? "bg-white/10 text-white/40 cursor-not-allowed"
+                : "bg-gradient-to-r from-cyan-400 to-violet-500 text-black hover:opacity-90"
+            }
+          `}
+        >
+          {loading ? "Logging in..." : "Login"}
         </button>
 
         {/* REGISTER LINK */}
-        <p className="text-sm text-center">
-          Belum punya akun?{" "}
+        <p className="text-center text-sm text-white/40 mt-6">
+          Don’t have an account?{" "}
           <span
             onClick={() => router.push("/register")}
-            className="underline cursor-pointer"
+            className="text-cyan-400 cursor-pointer hover:underline"
           >
             Register
           </span>
         </p>
+
       </form>
     </div>
   );

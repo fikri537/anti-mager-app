@@ -1,284 +1,355 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getTasks, createTask } from "@/services/api";
+
+import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "sonner";
+
+import Sidebar from "../components/dashboard/Sidebar";
+import Topbar from "../components/dashboard/Topbar";
+import StatsCard from "../components/dashboard/StatsCard";
+import ProductivityChart from "../components/dashboard/ProductivityChart";
+import QuickCreate from "../components/dashboard/QuickCreate";
+import TaskCard from "../components/dashboard/TaskCard";
+import MobileNav from "../components/dashboard/MobileNav";
+import ProductivityInsight from "../components/dashboard/ProductivityInsight";
+
+import PageTransition from "../components/ui/PageTransition";
+import Modal from "../components/ui/Modal";
+import TaskFilter from "../components/dashboard/TaskFilter";
+
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
+  getTasks,
+  createTask as createTaskAPI,
+  updateTask,
+  deleteTask as deleteTaskAPI,
+  Task,
+} from "@/services/task.service";
 
-type Task = {
-  id: number;
-  title: string;
-  status: "pending" | "done" | "late";
-  penalty: number;
-  deadline: string;
-};
+type FilterType = "all" | "done" | "pending" | "late";
 
-export default function Dashboard() {
+export default function DashboardPage() {
   const router = useRouter();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState("");
+
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
   const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState("all");
 
-  useEffect(() => {
-    const t = localStorage.getItem("token");
+  const [filter, setFilter] = useState<FilterType>("all");
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
-    if (!t) {
-      router.replace("/login");
-    } else {
-      setToken(t);
-    }
-  }, [router]);
+  /**
+   * =========================
+   * SAFE STATUS NORMALIZER
+   * =========================
+   * Backend kadang tidak kirim late → kita hitung di frontend
+   */
+  const normalizeTask = (task: Task): Task => {
+    const isLate =
+      task.status !== "done" &&
+      new Date(task.deadline).getTime() < Date.now();
 
-  const fetchTasks = async (tkn: string) => {
+    return {
+      ...task,
+      status: isLate ? "late" : task.status,
+    };
+  };
+
+  /**
+   * FETCH TASKS
+   */
+  const fetchTasks = async (authToken: string) => {
     try {
       setLoading(true);
-      const res = await getTasks(tkn);
 
-      if (res.success && Array.isArray(res.data)) {
-        setTasks(res.data);
-      } else {
+      const res = await getTasks(authToken);
+
+      // FIX: backend kamu kemungkinan return { data: [] } atau langsung array
+      const raw = res?.data ?? res;
+
+      if (!Array.isArray(raw)) {
         setTasks([]);
+        return;
       }
+
+      const normalized = raw.map(normalizeTask);
+
+      setTasks(normalized);
     } catch (err) {
       console.error(err);
+      toast.error("Failed to fetch tasks");
       setTasks([]);
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * AUTH CHECK
+   */
   useEffect(() => {
+    const storedToken = localStorage.getItem("token");
+
+    if (!storedToken) {
+      router.replace("/login");
+      return;
+    }
+
+    setToken(storedToken);
+    fetchTasks(storedToken);
+  }, [router]);
+
+  /**
+   * =========================
+   * STATS
+   * =========================
+   */
+  const stats = useMemo(() => {
+    const total = tasks.length;
+
+    const done = tasks.filter((t) => t.status === "done").length;
+    const pending = tasks.filter((t) => t.status === "pending").length;
+    const late = tasks.filter((t) => t.status === "late").length;
+
+    const score = tasks.reduce((acc, t) => {
+      if (t.status === "done") return acc + 10;
+      if (t.status === "late") return acc - 5;
+      return acc;
+    }, 0);
+
+    return { total, done, pending, late, score };
+  }, [tasks]);
+
+  const completionRate =
+    stats.total === 0 ? 0 : Math.round((stats.done / stats.total) * 100);
+
+  /**
+   * FILTER TASKS
+   */
+  const filteredTasks = tasks.filter((t) => {
+    if (filter === "all") return true;
+    return t.status === filter;
+  });
+
+  /**
+   * CREATE TASK
+   */
+  const createTask = async () => {
+    if (!title.trim() || !deadline) {
+      toast.error("Please complete all fields");
+      return;
+    }
+
     if (!token) return;
-    fetchTasks(token);
-  }, [token]);
 
-  const handleCreate = async () => {
-    if (!token || !title || !deadline) return;
+    try {
+      setSubmitting(true);
 
-    await createTask({ title, deadline }, token);
-    fetchTasks(token);
-    setTitle("");
-    setDeadline("");
+      await createTaskAPI(
+        { title: title.trim(), deadline },
+        token
+      );
+
+      await fetchTasks(token);
+
+      setTitle("");
+      setDeadline("");
+
+      toast.success("Task created successfully 🚀");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to create task");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const markAsDone = async (id: number) => {
+  /**
+   * COMPLETE TASK
+   */
+  const completeTask = async (id: number) => {
     if (!token) return;
 
-    await fetch(`http://localhost:5000/api/tasks/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: token,
-      },
-      body: JSON.stringify({ status: "done" }),
-    });
+    try {
+      await updateTask(id, "done", token);
 
-    fetchTasks(token);
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === id ? { ...t, status: "done" } : t
+        )
+      );
+
+      toast.success("Task completed successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update task");
+    }
   };
 
+  /**
+   * DELETE TASK
+   */
   const deleteTask = async (id: number) => {
     if (!token) return;
 
-    await fetch(`http://localhost:5000/api/tasks/${id}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: token,
-      },
-    });
+    try {
+      await deleteTaskAPI(id, token);
 
-    fetchTasks(token);
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+
+      toast.success("Task deleted");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete task");
+    }
   };
-
-  const isLate = (deadline: string) => {
-    return new Date(deadline) < new Date();
-  };
-
-  const getStatus = (task: Task) => {
-    if (task.status === "done") return "done";
-    if (isLate(task.deadline)) return "late";
-    return "pending";
-  };
-
-  const getScore = (task: Task) => {
-    if (getStatus(task) === "done") return 10;
-    if (getStatus(task) === "late") return -5;
-    return 0;
-  };
-
-  const total = tasks.length;
-  const done = tasks.filter((t) => getStatus(t) === "done").length;
-  const late = tasks.filter((t) => getStatus(t) === "late").length;
-  const pending = tasks.filter((t) => getStatus(t) === "pending").length;
-  const score = tasks.reduce((acc, t) => acc + getScore(t), 0);
-
-  const chartData = [
-    { name: "Done", value: done },
-    { name: "Pending", value: pending },
-    { name: "Late", value: late },
-  ];
-
-  const filteredTasks = tasks.filter((task) => {
-    if (filter === "all") return true;
-    return getStatus(task) === filter;
-  });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-blue-500 p-6 text-white">
-      
-      {/* HEADER */}
-      <div className="flex justify-between mb-6">
-        <h1 className="text-3xl font-bold">🔥 Anti-Mager</h1>
+    <PageTransition>
+      <div className="relative min-h-screen overflow-hidden bg-[#020617] text-white">
 
-        <div className="space-x-4">
-          <a href="/leaderboard" className="underline">
-            Leaderboard
-          </a>
-
-          <button
-            onClick={() => {
-              localStorage.removeItem("token");
-              router.push("/login");
-            }}
-            className="bg-red-500 px-3 py-1 rounded"
-          >
-            Logout
-          </button>
+        {/* BACKGROUND (UNCHANGED) */}
+        <div className="pointer-events-none fixed inset-0">
+          <div className="absolute left-[-120px] top-[-120px] h-[420px] w-[420px] rounded-full bg-cyan-500/10 blur-[120px]" />
+          <div className="absolute bottom-[-120px] right-[-120px] h-[420px] w-[420px] rounded-full bg-violet-500/10 blur-[120px]" />
+          <div className="absolute left-1/2 top-1/3 h-[300px] w-[300px] -translate-x-1/2 rounded-full bg-fuchsia-500/5 blur-[120px]" />
         </div>
-      </div>
 
-      {/* SCORE */}
-      <div className="backdrop-blur-lg bg-white/20 border border-white/30 p-6 rounded-2xl mb-6 shadow-lg">
-        <p>Your Score</p>
-        <h2 className="text-4xl font-bold">{score} pts</h2>
-      </div>
+        <div className="relative flex">
 
-      {/* CHART */}
-      <div className="relative p-6 rounded-2xl mb-6 shadow-lg overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-pink-300 via-purple-300 to-blue-300 opacity-30 blur-2xl"></div>
+          <Sidebar />
 
-        <div className="relative bg-white text-black p-5 rounded-xl">
-          <h2 className="mb-4 font-semibold">Task Overview</h2>
+          <main className="flex-1 p-5 pb-32 lg:p-8">
 
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData}>
-              <XAxis dataKey="name" stroke="#333" />
-              <Tooltip />
+            <Topbar />
 
-              <Bar dataKey="value">
-                {chartData.map((entry, index) => (
-                  <Cell
-                    key={index}
-                    fill={
-                      entry.name === "Done"
-                        ? "#22c55e"
-                        : entry.name === "Pending"
-                        ? "#eab308"
-                        : "#ef4444"
-                    }
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+            {/* STATS */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="grid grid-cols-1 gap-5 md:grid-cols-2 2xl:grid-cols-4"
+            >
+              <StatsCard title="Total Tasks" value={stats.total} desc="All active tasks" color="text-cyan-400" />
+              <StatsCard title="Completed" value={stats.done} desc="Finished tasks" color="text-emerald-400" />
+              <StatsCard title="Pending" value={stats.pending} desc="Still in progress" color="text-amber-400" />
+              <StatsCard title="Late Tasks" value={stats.late} desc="Need attention" color="text-red-400" />
+            </motion.div>
 
-      {/* CREATE */}
-      <div className="backdrop-blur-lg bg-white/20 p-6 rounded-2xl mb-6 space-y-3">
-        <input
-          placeholder="Task title"
-          className="p-2 w-full rounded bg-white/30"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-
-        <input
-          type="datetime-local"
-          className="p-2 w-full rounded bg-white/30"
-          value={deadline}
-          onChange={(e) => setDeadline(e.target.value)}
-        />
-
-        <button
-          onClick={handleCreate}
-          className="bg-black px-4 py-2 w-full rounded"
-        >
-          Add Task
-        </button>
-      </div>
-
-      {/* FILTER */}
-      <div className="flex gap-2 mb-4">
-        {["all", "done", "pending", "late"].map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className="bg-white/20 px-3 py-1 rounded"
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
-      {/* TASK LIST */}
-      {loading && <p>Loading...</p>}
-
-      <ul className="space-y-3">
-        {filteredTasks.map((task) => (
-          <li
-            key={task.id}
-            className="backdrop-blur-lg bg-white/20 p-4 rounded-xl flex justify-between"
-          >
-            <div>
-              <h2 className="font-bold">{task.title}</h2>
-
-              <p
-                className={
-                  getStatus(task) === "done"
-                    ? "text-green-300"
-                    : getStatus(task) === "late"
-                    ? "text-red-300"
-                    : "text-yellow-300"
-                }
+            {/* CHART */}
+            <div className="mt-8 grid grid-cols-1 gap-6 2xl:grid-cols-3">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="2xl:col-span-2"
               >
-                {getStatus(task)}
-              </p>
+                <ProductivityChart />
+              </motion.div>
 
-              <p>{new Date(task.deadline).toLocaleString()}</p>
-              <p>Score: {getScore(task)}</p>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <QuickCreate
+                  title={title}
+                  setTitle={setTitle}
+                  deadline={deadline}
+                  setDeadline={setDeadline}
+                  onCreate={createTask}
+                  loading={submitting}
+                />
+              </motion.div>
             </div>
 
-            <div className="space-y-2">
-              {getStatus(task) !== "done" && (
-                <button
-                  onClick={() => markAsDone(task.id)}
-                  className="bg-green-500 px-3 py-1 rounded"
-                >
-                  Done
-                </button>
+            {/* INSIGHT */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="mt-6"
+            >
+              <ProductivityInsight
+                completionRate={completionRate}
+                score={stats.score}
+              />
+            </motion.div>
+
+            {/* FILTER */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="mt-8"
+            >
+              <TaskFilter value={filter} onChange={setFilter} />
+            </motion.div>
+
+            {/* TASK LIST */}
+            <div className="mt-8">
+              {loading ? (
+                <div className="glass-card rounded-[32px] p-10 text-center text-white/50">
+                  Loading tasks...
+                </div>
+              ) : filteredTasks.length === 0 ? (
+                <div className="glass-card rounded-[32px] p-16 text-center">
+                  <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/20 to-violet-500/20 text-4xl">
+                    🚀
+                  </div>
+                  <h2 className="mb-3 text-3xl font-black">No tasks yet</h2>
+                  <p className="mx-auto max-w-md text-white/40">
+                    Start building momentum by creating your first productive task.
+                  </p>
+                </div>
+              ) : (
+                <AnimatePresence mode="popLayout">
+                  <div className="space-y-5">
+                    {filteredTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onDone={() => completeTask(task.id)}
+                        onDelete={() => setDeleteId(task.id)}
+                      />
+                    ))}
+                  </div>
+                </AnimatePresence>
               )}
-
-              <button
-                onClick={() => deleteTask(task.id)}
-                className="bg-red-500 px-3 py-1 rounded"
-              >
-                Delete
-              </button>
             </div>
-          </li>
-        ))}
-      </ul>
-    </div>
+
+          </main>
+        </div>
+
+        {/* DELETE MODAL */}
+        <Modal open={deleteId !== null} onClose={() => setDeleteId(null)} title="Delete Task">
+          <p className="text-white/60">Are you sure you want to delete this task?</p>
+
+          <div className="mt-8 flex justify-end gap-3">
+            <button onClick={() => setDeleteId(null)} className="rounded-2xl border border-white/10 px-5 py-3 text-white/60">
+              Cancel
+            </button>
+
+            <button
+              onClick={() => {
+                if (deleteId) deleteTask(deleteId);
+                setDeleteId(null);
+              }}
+              className="rounded-2xl bg-red-500 px-5 py-3 font-semibold text-white"
+            >
+              Delete
+            </button>
+          </div>
+        </Modal>
+
+        <MobileNav />
+      </div>
+    </PageTransition>
   );
 }
