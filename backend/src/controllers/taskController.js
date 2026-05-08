@@ -42,8 +42,16 @@ export const updateTask = async (req, res) => {
       return errorResponse(res, "Status required", 400);
     }
 
-    // 🔥 FIX: pakai userId biar aman
-    await updateTaskStatus(id, req.user.id, status);
+    // 🔥 TAMBAHAN LOGIC
+    const completedAt =
+      status === "done" ? new Date() : null;
+
+    await updateTaskStatus(
+      id,
+      req.user.id,
+      status,
+      completedAt
+    );
 
     return successResponse(res, null, "Task updated");
   } catch (err) {

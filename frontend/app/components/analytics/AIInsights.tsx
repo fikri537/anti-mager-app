@@ -17,8 +17,8 @@ type Props = {
     done: number;
     late: number;
     pending: number;
-    score: number;
     productivity: number;
+    score?: number; // ✅ FIX
   };
 };
 

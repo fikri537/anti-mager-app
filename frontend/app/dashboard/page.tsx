@@ -29,10 +29,14 @@ import {
 
 type FilterType = "all" | "done" | "pending" | "late";
 
+type TaskWithMeta = Task & {
+  completed_at?: string | null;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
 
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskWithMeta[]>([]);
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState("");
 
@@ -46,11 +50,10 @@ export default function DashboardPage() {
 
   /**
    * =========================
-   * SAFE STATUS NORMALIZER
+   * NORMALIZER
    * =========================
-   * Backend kadang tidak kirim late → kita hitung di frontend
    */
-  const normalizeTask = (task: Task): Task => {
+  const normalizeTask = (task: TaskWithMeta): TaskWithMeta => {
     const isLate =
       task.status !== "done" &&
       new Date(task.deadline).getTime() < Date.now();
@@ -62,15 +65,15 @@ export default function DashboardPage() {
   };
 
   /**
+   * =========================
    * FETCH TASKS
+   * =========================
    */
   const fetchTasks = async (authToken: string) => {
     try {
       setLoading(true);
 
       const res = await getTasks(authToken);
-
-      // FIX: backend kamu kemungkinan return { data: [] } atau langsung array
       const raw = res?.data ?? res;
 
       if (!Array.isArray(raw)) {
@@ -91,7 +94,9 @@ export default function DashboardPage() {
   };
 
   /**
-   * AUTH CHECK
+   * =========================
+   * AUTH
+   * =========================
    */
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
@@ -130,15 +135,34 @@ export default function DashboardPage() {
     stats.total === 0 ? 0 : Math.round((stats.done / stats.total) * 100);
 
   /**
-   * FILTER TASKS
+   * =========================
+   * FILTER (SAFE + CONSISTENT)
+   * =========================
    */
-  const filteredTasks = tasks.filter((t) => {
-    if (filter === "all") return true;
-    return t.status === filter;
-  });
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (filter === "all") return true;
+
+      if (filter === "done") {
+        return t.status === "done" && !!t.completed_at;
+      }
+
+      if (filter === "pending") {
+        return t.status === "pending" && !t.completed_at;
+      }
+
+      if (filter === "late") {
+        return t.status === "late";
+      }
+
+      return true;
+    });
+  }, [tasks, filter]);
 
   /**
+   * =========================
    * CREATE TASK
+   * =========================
    */
   const createTask = async () => {
     if (!title.trim() || !deadline) {
@@ -171,7 +195,9 @@ export default function DashboardPage() {
   };
 
   /**
-   * COMPLETE TASK
+   * =========================
+   * COMPLETE TASK (SET completed_at)
+   * =========================
    */
   const completeTask = async (id: number) => {
     if (!token) return;
@@ -181,7 +207,13 @@ export default function DashboardPage() {
 
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === id ? { ...t, status: "done" } : t
+          t.id === id
+            ? {
+                ...t,
+                status: "done",
+                completed_at: new Date().toISOString(),
+              }
+            : t
         )
       );
 
@@ -193,7 +225,9 @@ export default function DashboardPage() {
   };
 
   /**
+   * =========================
    * DELETE TASK
+   * =========================
    */
   const deleteTask = async (id: number) => {
     if (!token) return;
@@ -210,11 +244,15 @@ export default function DashboardPage() {
     }
   };
 
+  /**
+   * =========================
+   * UI
+   * =========================
+   */
   return (
     <PageTransition>
       <div className="relative min-h-screen overflow-hidden bg-[#020617] text-white">
 
-        {/* BACKGROUND (UNCHANGED) */}
         <div className="pointer-events-none fixed inset-0">
           <div className="absolute left-[-120px] top-[-120px] h-[420px] w-[420px] rounded-full bg-cyan-500/10 blur-[120px]" />
           <div className="absolute bottom-[-120px] right-[-120px] h-[420px] w-[420px] rounded-full bg-violet-500/10 blur-[120px]" />
@@ -233,7 +271,6 @@ export default function DashboardPage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
               className="grid grid-cols-1 gap-5 md:grid-cols-2 2xl:grid-cols-4"
             >
               <StatsCard title="Total Tasks" value={stats.total} desc="All active tasks" color="text-cyan-400" />
@@ -244,53 +281,32 @@ export default function DashboardPage() {
 
             {/* CHART */}
             <div className="mt-8 grid grid-cols-1 gap-6 2xl:grid-cols-3">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="2xl:col-span-2"
-              >
+              <div className="2xl:col-span-2">
                 <ProductivityChart />
-              </motion.div>
+              </div>
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                <QuickCreate
-                  title={title}
-                  setTitle={setTitle}
-                  deadline={deadline}
-                  setDeadline={setDeadline}
-                  onCreate={createTask}
-                  loading={submitting}
-                />
-              </motion.div>
+              <QuickCreate
+                title={title}
+                setTitle={setTitle}
+                deadline={deadline}
+                setDeadline={setDeadline}
+                onCreate={createTask}
+                loading={submitting}
+              />
             </div>
 
             {/* INSIGHT */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="mt-6"
-            >
+            <div className="mt-6">
               <ProductivityInsight
                 completionRate={completionRate}
                 score={stats.score}
               />
-            </motion.div>
+            </div>
 
             {/* FILTER */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="mt-8"
-            >
+            <div className="mt-8">
               <TaskFilter value={filter} onChange={setFilter} />
-            </motion.div>
+            </div>
 
             {/* TASK LIST */}
             <div className="mt-8">
@@ -300,16 +316,10 @@ export default function DashboardPage() {
                 </div>
               ) : filteredTasks.length === 0 ? (
                 <div className="glass-card rounded-[32px] p-16 text-center">
-                  <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/20 to-violet-500/20 text-4xl">
-                    🚀
-                  </div>
-                  <h2 className="mb-3 text-3xl font-black">No tasks yet</h2>
-                  <p className="mx-auto max-w-md text-white/40">
-                    Start building momentum by creating your first productive task.
-                  </p>
+                  <h2 className="text-3xl font-black">No tasks yet</h2>
                 </div>
               ) : (
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence>
                   <div className="space-y-5">
                     {filteredTasks.map((task) => (
                       <TaskCard
@@ -329,19 +339,16 @@ export default function DashboardPage() {
 
         {/* DELETE MODAL */}
         <Modal open={deleteId !== null} onClose={() => setDeleteId(null)} title="Delete Task">
-          <p className="text-white/60">Are you sure you want to delete this task?</p>
+          <p>Are you sure?</p>
 
-          <div className="mt-8 flex justify-end gap-3">
-            <button onClick={() => setDeleteId(null)} className="rounded-2xl border border-white/10 px-5 py-3 text-white/60">
-              Cancel
-            </button>
-
+          <div className="mt-6 flex justify-end gap-3">
+            <button onClick={() => setDeleteId(null)}>Cancel</button>
             <button
               onClick={() => {
                 if (deleteId) deleteTask(deleteId);
                 setDeleteId(null);
               }}
-              className="rounded-2xl bg-red-500 px-5 py-3 font-semibold text-white"
+              className="text-red-400"
             >
               Delete
             </button>

@@ -5,6 +5,7 @@ export type Task = {
   title: string;
   status: "pending" | "done" | "late";
   deadline: string;
+  completed_at?: string | null; // 🔥 WAJIB JADI OPTIONAL
 };
 
 /**

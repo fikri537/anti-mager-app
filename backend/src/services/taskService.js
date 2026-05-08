@@ -28,9 +28,41 @@ export const createNewTask = async (userId, title, deadline) => {
 };
 
 export const updateTaskStatus = async (taskId, userId, status) => {
+  const [rows] = await db.query(
+    "SELECT status, completed_at FROM tasks WHERE id = ? AND user_id = ?",
+    [taskId, userId]
+  );
+
+  if (!rows.length) {
+    throw new Error("Task not found or unauthorized");
+  }
+
+  const task = rows[0];
+
+  let completedAt = task.completed_at;
+
+  /**
+   * =========================
+   * RULE:
+   * - first time DONE → set completed_at
+   * - undo DONE → reset completed_at
+   * =========================
+   */
+  if (status === "done" && !task.completed_at) {
+    completedAt = new Date();
+  }
+
+  if (status !== "done") {
+    completedAt = null;
+  }
+
   const [result] = await db.query(
-    "UPDATE tasks SET status = ? WHERE id = ? AND user_id = ?",
-    [status, taskId, userId]
+    `
+    UPDATE tasks 
+    SET status = ?, completed_at = ?
+    WHERE id = ? AND user_id = ?
+    `,
+    [status, completedAt, taskId, userId]
   );
 
   if (result.affectedRows === 0) {

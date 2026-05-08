@@ -14,12 +14,16 @@ import { getTasks, Task } from "@/services/task.service";
 
 const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+type TaskWithMeta = Task & {
+  completed_at?: string | null;
+};
+
 export default function ProductivityChart() {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskWithMeta[]>([]);
 
   /**
    * =========================
-   * FETCH REAL TASK DATA
+   * FETCH TASKS
    * =========================
    */
   useEffect(() => {
@@ -30,9 +34,14 @@ export default function ProductivityChart() {
 
         const res = await getTasks(token);
 
-        const data = Array.isArray(res?.data) ? res.data : res;
+        const raw = res?.data ?? res;
 
-        setTasks(Array.isArray(data) ? data : []);
+        if (!Array.isArray(raw)) {
+          setTasks([]);
+          return;
+        }
+
+        setTasks(raw);
       } catch (err) {
         console.error("ProductivityChart error:", err);
         setTasks([]);
@@ -44,7 +53,7 @@ export default function ProductivityChart() {
 
   /**
    * =========================
-   * GROUP BY DAY (REAL LOGIC)
+   * GROUP BY COMPLETED_AT (TRUE PRODUCTIVITY)
    * =========================
    */
   const chartData = useMemo(() => {
@@ -54,9 +63,10 @@ export default function ProductivityChart() {
     }));
 
     tasks.forEach((task) => {
-      if (!task?.deadline) return;
+      if (!task?.completed_at) return;
 
-      const date = new Date(task.deadline);
+      const date = new Date(task.completed_at);
+
       if (isNaN(date.getTime())) return;
 
       const dayIndex = date.getDay();
@@ -84,7 +94,7 @@ export default function ProductivityChart() {
           </h2>
 
           <p className="text-sm text-white/40 mt-1">
-            Weekly performance overview
+            Based on completed tasks (real activity time)
           </p>
         </div>
 
@@ -98,30 +108,13 @@ export default function ProductivityChart() {
           <AreaChart data={chartData}>
 
             <defs>
-              <linearGradient
-                id="gradient"
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
-                <stop
-                  offset="0%"
-                  stopColor="#22d3ee"
-                  stopOpacity={0.7}
-                />
-                <stop
-                  offset="100%"
-                  stopColor="#22d3ee"
-                  stopOpacity={0}
-                />
+              <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.7} />
+                <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
               </linearGradient>
             </defs>
 
-            <XAxis
-              dataKey="day"
-              stroke="#64748b"
-            />
+            <XAxis dataKey="day" stroke="#64748b" />
 
             <Tooltip
               contentStyle={{

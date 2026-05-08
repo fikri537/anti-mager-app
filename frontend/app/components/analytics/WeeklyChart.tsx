@@ -11,7 +11,7 @@ import {
 
 import Card from "../ui/Card";
 
-type WeeklyChartData = {
+export type WeeklyChartData = {
   day: string;
   completed: number;
   focus: number;
@@ -21,20 +21,8 @@ type Props = {
   data?: WeeklyChartData[];
 };
 
-const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 export default function WeeklyChart({ data = [] }: Props) {
   const safe = Array.isArray(data) ? data : [];
-
-  const chartData = days.map((day, index) => {
-    const item = safe[index];
-
-    return {
-      day,
-      completed: item?.completed ?? 0,
-      focus: item?.focus ?? 0,
-    };
-  });
 
   return (
     <Card className="h-full w-full">
@@ -53,7 +41,7 @@ export default function WeeklyChart({ data = [] }: Props) {
 
       <div className="h-[360px] w-full min-h-[360px]">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
+          <AreaChart data={safe}>
             <CartesianGrid
               strokeDasharray="3 3"
               stroke="rgba(255,255,255,0.05)"
