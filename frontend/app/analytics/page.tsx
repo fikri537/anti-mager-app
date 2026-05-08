@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 
 import Sidebar from "../components/dashboard/Sidebar";
 import Topbar from "../components/dashboard/Topbar";
@@ -11,8 +12,6 @@ import WeeklyChart from "../components/analytics/WeeklyChart";
 import ProductivityHeatmap from "../components/analytics/ProductivityHeatmap";
 import AIInsights from "../components/analytics/AIInsights";
 import ProductivityRadar from "../components/analytics/ProductivityRadar";
-
-import { motion } from "framer-motion";
 
 import { getTasks } from "@/services/task.service";
 
@@ -25,44 +24,33 @@ type Task = {
 
 export default function AnalyticsPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-
-useEffect(() => {
-  const fetch = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const res = await getTasks(token);
-    setTasks(res.data || []);
-  };
-
-  fetch();
-}, []);
-
   const [loading, setLoading] = useState(true);
 
   /**
    * =========================
-   * AUTH + FETCH
+   * FETCH DATA (FIXED)
    * =========================
    */
   useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    if (!token) return;
-
     const fetchData = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
 
         const res = await getTasks(token);
 
-        const data = res?.data ?? res;
+        const data = Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
+          ? res
+          : [];
 
-        if (Array.isArray(data)) {
-          setTasks(data);
-        } else {
-          setTasks([]);
-        }
+        setTasks(data);
       } catch (err) {
         console.error("Analytics fetch error:", err);
         setTasks([]);
@@ -76,7 +64,7 @@ useEffect(() => {
 
   /**
    * =========================
-   * NORMALIZE STATUS (important)
+   * NORMALIZE TASK STATUS
    * =========================
    */
   const normalizedTasks = useMemo(() => {
@@ -94,7 +82,7 @@ useEffect(() => {
 
   /**
    * =========================
-   * METRICS
+   * STATS (REAL DATA)
    * =========================
    */
   const stats = useMemo(() => {
@@ -110,7 +98,8 @@ useEffect(() => {
       return acc;
     }, 0);
 
-    const productivity = total === 0 ? 0 : Math.round((done / total) * 100);
+    const productivity =
+      total === 0 ? 0 : Math.round((done / total) * 100);
 
     return {
       total,
@@ -124,7 +113,7 @@ useEffect(() => {
 
   /**
    * =========================
-   * WEEKLY DATA (simple grouping)
+   * WEEKLY DATA (FIXED + SAFE)
    * =========================
    */
   const weeklyData = useMemo(() => {
@@ -136,17 +125,26 @@ useEffect(() => {
     }));
 
     normalizedTasks.forEach((task) => {
+      if (!task?.deadline) return;
+
       const date = new Date(task.deadline);
-      const day = date.getDay();
+      if (isNaN(date.getTime())) return;
+
+      const dayIndex = date.getDay();
 
       if (task.status === "done") {
-        map[day].done += 1;
+        map[dayIndex].done += 1;
       }
     });
 
     return map;
   }, [normalizedTasks]);
 
+  /**
+   * =========================
+   * LOADING STATE
+   * =========================
+   */
   if (loading) {
     return (
       <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">
@@ -155,10 +153,15 @@ useEffect(() => {
     );
   }
 
+  /**
+   * =========================
+   * UI
+   * =========================
+   */
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#020617] text-white">
 
-      {/* BACKGROUND (UNCHANGED) */}
+      {/* BACKGROUND */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-[-120px] top-[-120px] h-[420px] w-[420px] rounded-full bg-cyan-500/10 blur-[120px]" />
         <div className="absolute bottom-[-120px] right-[-120px] h-[420px] w-[420px] rounded-full bg-violet-500/10 blur-[120px]" />
@@ -195,7 +198,6 @@ useEffect(() => {
                 </p>
               </div>
 
-              {/* REAL SCORE */}
               <div className="glass-card flex items-center gap-5 rounded-[28px] px-6 py-5">
                 <div className="text-2xl">🚀</div>
 
@@ -216,7 +218,7 @@ useEffect(() => {
             <KPISection />
           </section>
 
-          {/* MAIN GRID */}
+          {/* GRID */}
           <section className="mt-8 grid grid-cols-1 gap-6 2xl:grid-cols-12">
 
             <div className="2xl:col-span-7">

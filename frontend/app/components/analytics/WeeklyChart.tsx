@@ -10,64 +10,37 @@ import {
 } from "recharts";
 
 import Card from "../ui/Card";
-import { Task } from "@/services/task.service";
+
+type WeeklyChartData = {
+  day: string;
+  completed: number;
+  focus: number;
+};
 
 type Props = {
-  data?: Task[];
+  data?: WeeklyChartData[];
 };
 
 const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function WeeklyChart({ data = [] }: Props) {
-  /**
-   * =========================
-   * SAFE DATA (DB GUARANTEE)
-   * =========================
-   */
   const safe = Array.isArray(data) ? data : [];
 
-  /**
-   * =========================
-   * INIT WEEK STRUCTURE
-   * =========================
-   */
   const chartData = days.map((day, index) => {
-    const tasksOfDay = safe.filter((t) => {
-      if (!t?.deadline) return false;
-
-      const date = new Date(t.deadline);
-      if (isNaN(date.getTime())) return false;
-
-      return date.getDay() === index;
-    });
-
-    const completed = tasksOfDay.filter(
-      (t) => t.status === "done"
-    ).length;
-
-    const focus = tasksOfDay.filter(
-      (t) => t.status !== "late"
-    ).length;
+    const item = safe[index];
 
     return {
       day,
-      completed,
-      focus,
+      completed: item?.completed ?? 0,
+      focus: item?.focus ?? 0,
     };
   });
 
-  /**
-   * =========================
-   * UI
-   * =========================
-   */
   return (
     <Card className="h-full w-full">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <p className="text-sm text-cyan-400">
-            Weekly Activity
-          </p>
+          <p className="text-sm text-cyan-400">Weekly Activity</p>
           <h2 className="mt-2 text-3xl font-black">
             Productivity Trend
           </h2>
