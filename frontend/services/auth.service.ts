@@ -1,5 +1,4 @@
-const API_URL =
-  "http://localhost:5000/api/leaderboard";
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/leaderboard`;
 
 export type LeaderboardUser = {
   id: number;
@@ -7,19 +6,18 @@ export type LeaderboardUser = {
   score: number;
 };
 
-export const getLeaderboard =
-  async (): Promise<
-    LeaderboardUser[]
-  > => {
-    const response = await fetch(
-      API_URL
-    );
+export const getLeaderboard = async (): Promise<LeaderboardUser[]> => {
+  const response = await fetch(API_URL, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
-    if (!response.ok) {
-      throw new Error(
-        "Failed to fetch leaderboard"
-      );
-    }
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error?.message || "Failed to fetch leaderboard");
+  }
 
-    return response.json();
-  };
+  return response.json();
+};

@@ -1,4 +1,8 @@
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+/* =========================
+   AUTH
+========================= */
 
 export const registerUser = async (data: {
   name: string;
@@ -13,7 +17,11 @@ export const registerUser = async (data: {
     body: JSON.stringify(data),
   });
 
-  return res.json();
+  const result = await res.json();
+
+  if (!res.ok) throw new Error(result?.message || "Register failed");
+
+  return result;
 };
 
 export const loginUser = async (data: {
@@ -28,17 +36,31 @@ export const loginUser = async (data: {
     body: JSON.stringify(data),
   });
 
-  return res.json();
+  const result = await res.json();
+
+  if (!res.ok) throw new Error(result?.message || "Login failed");
+
+  return result;
 };
+
+/* =========================
+   TASKS
+========================= */
 
 export const getTasks = async (token: string) => {
   const res = await fetch(`${BASE_URL}/tasks`, {
+    method: "GET",
     headers: {
-      Authorization: token,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
   });
 
-  return res.json();
+  const result = await res.json();
+
+  if (!res.ok) throw new Error(result?.message || "Failed to fetch tasks");
+
+  return result;
 };
 
 export const createTask = async (
@@ -49,15 +71,33 @@ export const createTask = async (
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: token,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(data),
   });
 
-  return res.json();
+  const result = await res.json();
+
+  if (!res.ok) throw new Error(result?.message || "Failed to create task");
+
+  return result;
 };
 
+/* =========================
+   LEADERBOARD
+========================= */
+
 export const getLeaderboard = async () => {
-  const res = await fetch(`${BASE_URL}/tasks/leaderboard`);
-  return res.json();
+  const res = await fetch(`${BASE_URL}/leaderboard`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  const result = await res.json();
+
+  if (!res.ok) throw new Error(result?.message || "Failed to fetch leaderboard");
+
+  return result;
 };

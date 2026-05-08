@@ -1,11 +1,11 @@
-const API_URL = "http://localhost:5000/api/tasks";
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/tasks`;
 
 export type Task = {
   id: number;
   title: string;
   status: "pending" | "done" | "late";
   deadline: string;
-  completed_at?: string | null; // 🔥 WAJIB JADI OPTIONAL
+  completed_at?: string | null;
 };
 
 /**
@@ -38,21 +38,7 @@ const apiCall = async (
    GET TASKS
 ========================= */
 export const getTasks = async (token: string) => {
-  const res = await fetch("http://localhost:5000/api/tasks", {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`, // 🔥 FIX DI SINI
-    },
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data?.message || "API Error");
-  }
-
-  return data;
+  return apiCall(API_URL, { method: "GET" }, token);
 };
 
 /* =========================
@@ -62,22 +48,14 @@ export const createTask = async (
   body: { title: string; deadline: string },
   token: string
 ) => {
-  const res = await fetch("http://localhost:5000/api/tasks", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`, // 🔥 penting
+  return apiCall(
+    API_URL,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data?.message || "API Error");
-  }
-
-  return data;
+    token
+  );
 };
 
 /* =========================
@@ -88,40 +66,25 @@ export const updateTask = async (
   status: string,
   token: string
 ) => {
-  const res = await fetch(`http://localhost:5000/api/tasks/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`, // 🔥
+  return apiCall(
+    `${API_URL}/${id}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ status }),
     },
-    body: JSON.stringify({ status }),
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data?.message || "API Error");
-  }
-
-  return data;
+    token
+  );
 };
 
 /* =========================
    DELETE TASK
 ========================= */
 export const deleteTask = async (id: number, token: string) => {
-  const res = await fetch(`http://localhost:5000/api/tasks/${id}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`, // 🔥
+  return apiCall(
+    `${API_URL}/${id}`,
+    {
+      method: "DELETE",
     },
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data?.message || "API Error");
-  }
-
-  return data;
+    token
+  );
 };
